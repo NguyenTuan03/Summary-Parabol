@@ -198,7 +198,7 @@ def reveal_parabol_tab() -> None:
 
 def format_report(lines: list[str]) -> str:
     # Định dạng paste vào Notion/Parabol.
-    return "\n".join(["Today:", "", *(f"* {t}" for t in lines)])
+    return "\n".join(["Today:", "", *(f"• {t}" for t in lines)])
 
 
 class PillButton(tk.Canvas):
