@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-release:
     runs-on: macos-latest
@@ -43,6 +47,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/PR-Report-macOS.zip
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
