@@ -260,6 +260,157 @@ class PillButton(tk.Canvas):
         self._draw()
 
 
+class SettingsDialog(tk.Toplevel):
+    """Cửa sổ Cài đặt & Cập nhật phần mềm phong cách macOS."""
+
+    def __init__(self, parent: "App") -> None:
+        super().__init__(parent)
+        self.parent_app = parent
+        self.title("Settings")
+        self.geometry("480x540")
+        self.minsize(440, 480)
+        self.configure(bg=BG)
+        self.transient(parent)
+
+        # Căn giữa so với cửa sổ chính
+        self.update_idletasks()
+        pw = parent.winfo_width()
+        ph = parent.winfo_height()
+        px = parent.winfo_rootx()
+        py = parent.winfo_rooty()
+        self.geometry(f"+{px + max(0, (pw - 480) // 2)}+{py + max(0, (ph - 540) // 2)}")
+
+        # --- Header thông tin ứng dụng ---
+        app_info = tk.Frame(self, bg=BG)
+        app_info.pack(fill="x", padx=24, pady=(24, 16))
+
+        # Icon bo tròn mô phỏng logo app
+        icon_frame = tk.Frame(app_info, bg=ACCENT, width=44, height=44)
+        icon_frame.pack_propagate(False)
+        icon_frame.pack(side="left")
+        tk.Label(icon_frame, text="PR", bg=ACCENT, fg="#FFFFFF",
+                 font=(BASE_FONT, 16, "bold")).pack(expand=True)
+
+        info_text = tk.Frame(app_info, bg=BG)
+        info_text.pack(side="left", padx=14)
+        tk.Label(info_text, text="PR Report", bg=BG, fg=TEXT,
+                 font=(BASE_FONT, 18, "bold")).pack(anchor="w")
+        tk.Label(info_text, text=f"Version {__version__} · Daily Standup & Parabol", bg=BG, fg=MUTED,
+                 font=(BASE_FONT, 12)).pack(anchor="w", pady=(2, 0))
+
+        # --- Thẻ Quản lý Cập nhật (Card) ---
+        card = tk.Frame(self, bg=CARD, highlightbackground=BORDER,
+                        highlightcolor=BORDER, highlightthickness=1)
+        card.pack(fill="both", expand=True, padx=24, pady=(0, 20))
+
+        chead = tk.Frame(card, bg=CARD)
+        chead.pack(fill="x", padx=20, pady=(16, 6))
+        tk.Label(chead, text="Software Update", bg=CARD, fg=TEXT,
+                 font=(BASE_FONT, 14, "bold")).pack(anchor="w")
+
+        self.status_label = tk.Label(
+            card, text="Checking for updates…",
+            bg=CARD, fg=MUTED, font=(BASE_FONT, 12), wraplength=400, justify="left"
+        )
+        self.status_label.pack(anchor="w", padx=20, pady=(0, 14))
+
+        # Hàng nút bấm
+        btn_row = tk.Frame(card, bg=CARD)
+        btn_row.pack(fill="x", padx=20, pady=(0, 10))
+
+        self.check_btn = PillButton(
+            btn_row, "Check for Updates", self.on_check_click, primary=False, width=152
+        )
+        self.check_btn.pack(side="left")
+
+        self.update_btn = PillButton(
+            btn_row, "Update Now", self.on_update_click, primary=True, width=132,
+            color="#059669", hover_color="#047857"
+        )
+
+        # Khung Release Notes (chỉ hiện khi có bản mới)
+        self.notes_frame = tk.Frame(card, bg=SUMMARY_BG, highlightbackground=SUMMARY_BORDER,
+                                    highlightcolor=SUMMARY_BORDER, highlightthickness=1)
+        tk.Label(self.notes_frame, text="What's New in this version:", bg=SUMMARY_BG, fg=ACCENT,
+                 font=(BASE_FONT, 12, "bold")).pack(anchor="w", padx=12, pady=(10, 4))
+
+        self.notes_text = tk.Text(
+            self.notes_frame, height=9, bg=SUMMARY_BG, fg=TEXT, wrap="word",
+            relief="flat", borderwidth=0, font=(BASE_FONT, 12), padx=12, pady=6
+        )
+        self.notes_text.pack(fill="both", expand=True, padx=4, pady=(0, 8))
+        self.notes_text.bind("<Key>", lambda e: None if e.state & 0x8 else "break")
+
+        # Khởi tạo kiểm tra
+        if self.parent_app.update_info:
+            self.show_update_available(self.parent_app.update_info)
+        else:
+            self.on_check_click()
+
+    def on_check_click(self) -> None:
+        self.check_btn.configure_state(False, "Checking…")
+        self.status_label.config(text="Connecting to GitHub to check for updates…", fg=MUTED)
+        threading.Thread(target=self._check_worker, daemon=True).start()
+
+    def _check_worker(self) -> None:
+        try:
+            info = updater.check_for_update(__version__)
+            self.after(0, lambda: self._on_check_done(info))
+        except Exception as e:
+            self.after(0, lambda: self._on_check_done(None, error=str(e)))
+
+    def _on_check_done(self, info: dict | None, error: str | None = None) -> None:
+        self.check_btn.configure_state(True, "Check for Updates")
+        if error:
+            self.status_label.config(text=f"Error checking: {error}", fg=ERROR)
+            return
+
+        if info:
+            self.parent_app.update_info = info
+            self.parent_app.update_btn.configure_state(True, f"⬆ Update {info.get('version', '')}")
+            self.parent_app.update_btn.pack(side="right", anchor="n", padx=(0, 8), pady=(4, 0))
+            self.show_update_available(info)
+        else:
+            self.status_label.config(text=f"✓ You're up to date! (Current version: {__version__})", fg="#059669")
+            self.update_btn.pack_forget()
+            self.notes_frame.pack_forget()
+
+    def show_update_available(self, info: dict) -> None:
+        tag = info.get("version", "vNew")
+        self.status_label.config(
+            text=f"✨ A new version {tag} is available!", fg="#059669"
+        )
+        self.update_btn.configure_state(True, f"Update to {tag}")
+        self.update_btn.pack(side="left", padx=(10, 0))
+
+        raw_notes = info.get("body", "").strip() or "General improvements and bug fixes."
+        self.notes_text.delete("1.0", "end")
+        self.notes_text.insert("1.0", raw_notes)
+        self.notes_frame.pack(fill="both", expand=True, padx=20, pady=(6, 16))
+
+    def on_update_click(self) -> None:
+        if not self.parent_app.update_info:
+            return
+        self.check_btn.configure_state(False)
+        self.update_btn.configure_state(False, "Updating…")
+        self.status_label.config(text="Downloading update from GitHub…", fg=MUTED)
+        threading.Thread(target=self._update_worker, daemon=True).start()
+
+    def _update_worker(self) -> None:
+        try:
+            def progress(p: int):
+                self.after(0, lambda: self.status_label.config(text=f"Downloading update… {p}%"))
+
+            updater.apply_update(self.parent_app.update_info, progress_callback=progress)
+        except Exception as e:
+            self.after(0, lambda: self._on_update_error(str(e)))
+
+    def _on_update_error(self, err_msg: str) -> None:
+        self.check_btn.configure_state(True)
+        self.update_btn.configure_state(True, "Retry Update")
+        self.status_label.config(text=f"Update failed: {err_msg}", fg=ERROR)
+
+
 class App(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -289,8 +440,15 @@ class App(tk.Tk):
 
         self.update_info: dict | None = None
         self.updating: bool = False
+        self.settings_window: SettingsDialog | None = None
+
+        self.settings_btn = PillButton(
+            header, "⚙", self.open_settings, primary=False, width=38
+        )
+        self.settings_btn.pack(side="right", anchor="n", pady=(4, 0))
+
         self.update_btn = PillButton(
-            header, "⬆ Update", self.on_update, primary=True, width=128,
+            header, "⬆ Update", self.open_settings, primary=True, width=128,
             color="#059669", hover_color="#047857"
         )
 
@@ -331,6 +489,7 @@ class App(tk.Tk):
         self.text.pack(fill="both", expand=True)
 
         self.bind("<Command-r>", lambda e: self.on_fetch())
+        self.bind("<Command-comma>", lambda e: self.open_settings())
         self._show_message(self.text, "Press Fetch PR (⌘R) to load today's commits.", "empty")
         self._show_message(self.summary, "The summary appears here after fetching.", "muted")
         self.after(300, self.on_fetch)  # tự fetch khi mở app
@@ -443,7 +602,9 @@ class App(tk.Tk):
                 self.update_info = payload  # type: ignore[assignment]
                 tag = payload.get("version", "vNew")  # type: ignore[union-attr]
                 self.update_btn.configure_state(True, f"⬆ Update {tag}")
-                self.update_btn.pack(side="right", anchor="n", padx=(0, 10), pady=(4, 0))
+                self.update_btn.pack(side="right", anchor="n", padx=(0, 8), pady=(4, 0))
+                if self.settings_window and self.settings_window.winfo_exists():
+                    self.settings_window.show_update_available(payload)  # type: ignore[arg-type]
             elif kind == "update_progress":
                 percent = payload
                 self.update_btn.configure_state(False, f"{percent}%")
@@ -465,12 +626,14 @@ class App(tk.Tk):
             pass
 
     def on_update(self) -> None:
-        if not self.update_info or self.updating:
-            return
-        self.updating = True
-        self.update_btn.configure_state(False, "Updating…")
-        self.status.config(text="Downloading update from GitHub…", fg=MUTED)
-        threading.Thread(target=self._apply_update_worker, daemon=True).start()
+        self.open_settings()
+
+    def open_settings(self) -> None:
+        if self.settings_window and self.settings_window.winfo_exists():
+            self.settings_window.lift()
+            self.settings_window.focus_force()
+        else:
+            self.settings_window = SettingsDialog(self)
 
     def _apply_update_worker(self) -> None:
         put = self.results.put

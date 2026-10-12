@@ -87,9 +87,10 @@ Mỗi buổi sáng họp **Daily Standup** hoặc viết cập nhật trên **Pa
 | Thao tác | Mô tả |
 | :--- | :--- |
 | <kbd>⌘</kbd> + <kbd>R</kbd> | Tải lại toàn bộ PR và commit trong ngày từ GitHub |
+| <kbd>⌘</kbd> + <kbd>,</kbd> *(hoặc nút ⚙)* | Mở cửa sổ **Settings** (Xem phiên bản, kiểm tra cập nhật & đọc Changelog) |
 | **Copy summary** | Sao chép nội dung tóm tắt (3–4 gạch đầu dòng AI) vào Clipboard |
 | **Copy list** | Sao chép danh sách tiêu đề commit thô |
-| **⬆ Update vX.X.X** | Cập nhật ứng dụng lên phiên bản mới nhất |
+| **⬆ Update vX.X.X** | Nâng cấp ứng dụng lên phiên bản mới nhất |
 
 ---
 
