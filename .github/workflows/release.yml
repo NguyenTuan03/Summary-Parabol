@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name to release / attach assets (e.g. v1.2.0)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -32,7 +37,7 @@ jobs:
 
       - name: Inject Release Version into App
         env:
-          TAG_VERSION: ${{ github.event.release.tag_name || github.ref_name }}
+          TAG_VERSION: ${{ github.event.inputs.tag || github.event.release.tag_name || github.ref_name }}
         run: |
           python -c "
           import os, re
@@ -69,6 +74,7 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag || github.event.release.tag_name || github.ref_name }}
           files: |
             dist/PR-Report.dmg
             dist/PR-Report-macOS.zip
