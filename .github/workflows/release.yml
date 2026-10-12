@@ -31,18 +31,21 @@ jobs:
           pip install pyinstaller pillow
 
       - name: Inject Release Version into App
+        env:
+          TAG_VERSION: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
-          RAW_TAG="${{ github.event.release.tag_name || github.ref_name }}"
-          VERSION=$(echo "$RAW_TAG" | sed 's/^v//')
-          echo "Building version: $VERSION"
           python -c "
-          import re
+          import os, re
+          raw = os.environ.get('TAG_VERSION', '1.0.0')
+          ver = raw.lstrip('v')
+          print(f'Building version: {ver}')
           path = 'updater.py'
           with open(path, 'r') as f:
               content = f.read()
-          content = re.sub(r'__version__ = \".*\"', f'__version__ = \"'$VERSION'\"', content)
+          content = re.sub(r'__version__ = \".*\"', f'__version__ = \"{ver}\"', content)
           with open(path, 'w') as f:
               f.write(content)
+          print(f'Successfully injected version {ver} into {path}')
           "
 
       - name: Generate Icon and Build App Bundle
