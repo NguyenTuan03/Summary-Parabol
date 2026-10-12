@@ -378,6 +378,7 @@ class App(tk.Tk):
         self.fetch_btn.configure_state(False, "Fetching…")
         self.status.config(text="Loading from GitHub…", fg=MUTED)
         executor.submit(self._fetch_worker)
+        threading.Thread(target=self._check_update_worker, daemon=True).start()
         self.after(100, self._poll)
 
     def _fetch_worker(self) -> None:

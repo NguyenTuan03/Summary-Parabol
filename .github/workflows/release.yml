@@ -30,6 +30,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller pillow
 
+      - name: Inject Release Version into App
+        run: |
+          RAW_TAG="${{ github.event.release.tag_name || github.ref_name }}"
+          VERSION=$(echo "$RAW_TAG" | sed 's/^v//')
+          echo "Building version: $VERSION"
+          python -c "
+          import re
+          path = 'updater.py'
+          with open(path, 'r') as f:
+              content = f.read()
+          content = re.sub(r'__version__ = \".*\"', f'__version__ = \"'$VERSION'\"', content)
+          with open(path, 'w') as f:
+              f.write(content)
+          "
+
       - name: Generate Icon and Build App Bundle
         run: |
           python make_icon.py
