@@ -77,24 +77,26 @@ def check_for_update(current_version: str = __version__) -> dict | None:
         if not tag_name or not is_newer_version(tag_name, current_version):
             return None
 
-        # Tìm asset file .zip trong release
+        # Tìm asset .zip hoặc .dmg trong release (ưu tiên .zip cho auto-update, dự phòng .dmg)
         assets = data.get("assets", [])
-        zip_asset = None
-        for a in assets:
-            name = a.get("name", "")
-            if name.endswith(".zip"):
-                zip_asset = a
+        chosen_asset = None
+        for ext in (".zip", ".dmg"):
+            for a in assets:
+                if a.get("name", "").endswith(ext):
+                    chosen_asset = a
+                    break
+            if chosen_asset:
                 break
 
-        if not zip_asset:
+        if not chosen_asset:
             return None
 
         return {
             "version": tag_name,
             "name": data.get("name") or tag_name,
-            "download_url": zip_asset.get("browser_download_url"),
-            "asset_name": zip_asset.get("name"),
-            "size": zip_asset.get("size", 0),
+            "download_url": chosen_asset.get("browser_download_url"),
+            "asset_name": chosen_asset.get("name"),
+            "size": chosen_asset.get("size", 0),
             "html_url": data.get("html_url", ""),
             "body": data.get("body", ""),
         }
@@ -124,22 +126,35 @@ def download_file(url: str, dest_path: str, progress_callback=None) -> None:
 
 def apply_update(update_info: dict, progress_callback=None) -> None:
     """
-    Tải bản cập nhật, giải nén và tự động thay thế app đang chạy.
+    Tải bản cập nhật, trích xuất và tự động thay thế app đang chạy.
     """
     download_url = update_info.get("download_url")
     if not download_url:
         raise ValueError("Missing download_url")
 
     temp_dir = tempfile.mkdtemp(prefix="pr_report_update_")
-    zip_path = os.path.join(temp_dir, "update.zip")
+    asset_name = update_info.get("asset_name", "update.zip")
+    download_path = os.path.join(temp_dir, asset_name)
 
-    # 1. Tải file zip
-    download_file(download_url, zip_path, progress_callback)
+    # 1. Tải file cập nhật
+    download_file(download_url, download_path, progress_callback)
 
-    # 2. Giải nén
+    # 2. Giải nén hoặc trích xuất từ DMG
     extract_dir = os.path.join(temp_dir, "extracted")
     os.makedirs(extract_dir, exist_ok=True)
-    shutil.unpack_archive(zip_path, extract_dir)
+
+    if download_path.endswith(".dmg"):
+        mount_dir = os.path.join(temp_dir, "dmg_mount")
+        os.makedirs(mount_dir, exist_ok=True)
+        try:
+            subprocess.run(["hdiutil", "attach", "-nobrowse", "-readonly", download_path, "-mountpoint", mount_dir], check=True)
+            for item in Path(mount_dir).glob("*.app"):
+                shutil.copytree(item, os.path.join(extract_dir, item.name), symlinks=True)
+                break
+        finally:
+            subprocess.run(["hdiutil", "detach", mount_dir], check=False)
+    else:
+        shutil.unpack_archive(download_path, extract_dir)
 
     # 3. Tìm file .app bên trong thư mục giải nén
     new_app_path = None

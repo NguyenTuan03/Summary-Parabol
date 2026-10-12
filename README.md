@@ -52,11 +52,10 @@ Mỗi buổi sáng họp **Daily Standup** hoặc viết cập nhật trên **Pa
 
 ### Cách 1: Tải ứng dụng đã đóng gói sẵn (Khuyên dùng)
 
-1. Tải file **`PR-Report-macOS.zip`** từ phiên bản mới nhất tại:  
+1. Tải file **`PR-Report.dmg`** từ phiên bản mới nhất tại:  
    👉 **[Tải bản mới nhất từ GitHub Releases](https://github.com/NguyenTuan03/Summary-Parabol/releases/latest)**
-2. Giải nén file `.zip`, bạn sẽ nhận được ứng dụng **`PR Report.app`**.
-3. Kéo **`PR Report.app`** vào thư mục **/Applications** của máy Mac.
-4. Mở app từ **Spotlight (⌘ Space)** hoặc **Launchpad**.
+2. Mở file `.dmg` và kéo biểu tượng **`PR Report`** vào thư mục **`Applications`** (không cần giải nén).
+3. Mở app từ **Spotlight (⌘ Space)** hoặc **Launchpad**.
 
 > [!NOTE]
 > **Xử lý cảnh báo mở app lần đầu trên macOS (Gatekeeper):**  
