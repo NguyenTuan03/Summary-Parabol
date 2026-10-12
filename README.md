@@ -52,7 +52,7 @@ Mỗi buổi sáng họp **Daily Standup** hoặc viết cập nhật trên **Pa
 
 ### Cách 1: Tải ứng dụng đã đóng gói sẵn (Khuyên dùng)
 
-1. Tải file **`PR-Report.dmg`** từ phiên bản mới nhất tại:  
+1. Tải file **`PR-Report-vX.Y.Z.dmg`** từ phiên bản mới nhất tại:  
    👉 **[Tải bản mới nhất từ GitHub Releases](https://github.com/NguyenTuan03/Summary-Parabol/releases/latest)**
 2. Mở file `.dmg` và kéo biểu tượng **`PR Report`** vào thư mục **`Applications`** (không cần giải nén).
 3. Mở app từ **Spotlight (⌘ Space)** hoặc **Launchpad**.
@@ -130,7 +130,7 @@ File ứng dụng sau khi build sẽ nằm tại thư mục `dist/PR Report.app`
 
 Dự án được cấu hình quy trình CI/CD chuyên nghiệp với **GitHub Actions**:
 * **Release Drafter**: Mỗi khi PR được merge vào nhánh `main`, hệ thống tự động soạn sẵn một bản nháp Release tiếp theo kèm theo danh sách thay đổi (Changelog).
-* **Auto Build & Release**: Khi bấm **Publish release** trên GitHub, máy ảo macOS sẽ tự động build ứng dụng, đóng gói file `.zip` và đính kèm vào trang Release trong vòng ~1 phút.
+* **Auto Build & Release**: Khi bấm **Publish release** trên GitHub, máy ảo macOS sẽ tự động build ứng dụng, đóng gói file `.dmg` cài đặt trực tiếp và đính kèm vào trang Release trong vòng ~1 phút.
 
 ---
 

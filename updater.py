@@ -77,12 +77,13 @@ def check_for_update(current_version: str = __version__) -> dict | None:
         if not tag_name or not is_newer_version(tag_name, current_version):
             return None
 
-        # Tìm asset .zip hoặc .dmg trong release (ưu tiên .zip cho auto-update, dự phòng .dmg)
+        # Tìm asset .dmg trong release (ưu tiên .dmg, dự phòng .zip nếu là release cũ)
         assets = data.get("assets", [])
         chosen_asset = None
-        for ext in (".zip", ".dmg"):
+        for ext in (".dmg", ".zip"):
             for a in assets:
-                if a.get("name", "").endswith(ext):
+                name = a.get("name", "")
+                if name.endswith(ext) and not name.startswith("Source code"):
                     chosen_asset = a
                     break
             if chosen_asset:
@@ -133,7 +134,7 @@ def apply_update(update_info: dict, progress_callback=None) -> None:
         raise ValueError("Missing download_url")
 
     temp_dir = tempfile.mkdtemp(prefix="pr_report_update_")
-    asset_name = update_info.get("asset_name", "update.zip")
+    asset_name = update_info.get("asset_name", "update.dmg")
     download_path = os.path.join(temp_dir, asset_name)
 
     # 1. Tải file cập nhật
@@ -149,10 +150,10 @@ def apply_update(update_info: dict, progress_callback=None) -> None:
         try:
             subprocess.run(["hdiutil", "attach", "-nobrowse", "-readonly", download_path, "-mountpoint", mount_dir], check=True)
             for item in Path(mount_dir).glob("*.app"):
-                shutil.copytree(item, os.path.join(extract_dir, item.name), symlinks=True)
+                shutil.copytree(item, os.path.join(extract_dir, item.name), symlinks=True, dirs_exist_ok=True)
                 break
         finally:
-            subprocess.run(["hdiutil", "detach", mount_dir], check=False)
+            subprocess.run(["hdiutil", "detach", mount_dir, "-force"], check=False)
     else:
         shutil.unpack_archive(download_path, extract_dir)
 

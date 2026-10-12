@@ -3,4 +3,5 @@ __pycache__/
 build/
 .DS_Store
 dist/PR Report
-dist/PR-Report-macOS.zip
+dist/*.zip
+dist/*.dmg

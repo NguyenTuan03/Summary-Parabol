@@ -58,17 +58,24 @@ jobs:
           python make_icon.py
           pyinstaller "PR Report.spec" --noconfirm --clean
 
-      - name: Package App Bundle (DMG and ZIP)
+      - name: Package App Bundle into DMG
+        env:
+          TAG_VERSION: ${{ github.event.inputs.tag || github.event.release.tag_name || github.ref_name }}
         run: |
-          cd dist
-          # 1. Nén file ZIP (cho In-App Auto Update chạy nền)
-          zip -r -y "PR-Report-macOS.zip" "PR Report.app"
+          RAW="${TAG_VERSION:-v1.0.0}"
+          if [[ "$RAW" == v* ]]; then
+            TAG="$RAW"
+          else
+            TAG="v$RAW"
+          fi
+          DMG_NAME="PR-Report-${TAG}.dmg"
+          echo "Packaging $DMG_NAME..."
 
-          # 2. Tạo file DMG kéo thả cài đặt trực tiếp
+          cd dist
           mkdir -p dmg_staging
           cp -R "PR Report.app" dmg_staging/
           ln -s /Applications dmg_staging/Applications
-          hdiutil create -volname "PR Report" -srcfolder dmg_staging -ov -format UDZO "PR-Report.dmg"
+          hdiutil create -volname "PR Report" -srcfolder dmg_staging -ov -format UDZO "$DMG_NAME"
           rm -rf dmg_staging
 
       - name: Publish GitHub Release
@@ -76,7 +83,6 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag || github.event.release.tag_name || github.ref_name }}
           files: |
-            dist/PR-Report.dmg
-            dist/PR-Report-macOS.zip
+            dist/PR-Report-*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
