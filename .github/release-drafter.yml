@@ -1,0 +1,39 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+
+version-resolver:
+  default: patch
+  major:
+    labels:
+      - 'major'
+      - 'breaking'
+  minor:
+    labels:
+      - 'minor'
+      - 'enhancement'
+      - 'feat'
+      - 'feature'
+  patch:
+    labels:
+      - 'patch'
+      - 'fix'
+      - 'bug'
+
+categories:
+  - title: '🚀 Features & Enhancements'
+    labels:
+      - 'feat'
+      - 'feature'
+      - 'enhancement'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'fix'
+      - 'bug'
+  - title: '🧰 Maintenance & Updates'
+    labels:
+      - '*'
+
+change-template: '- $TITLE by @$AUTHOR in #$NUMBER'
+template: |
+  ## What's Changed
+  $CHANGES
