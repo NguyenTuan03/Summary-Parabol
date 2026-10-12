@@ -14,10 +14,15 @@ import queue
 import shutil
 import subprocess
 import tempfile
+import threading
 import tkinter as tk
 import tkinter.font as tkfont
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+
+import updater
+
+__version__ = updater.__version__
 
 # Mở từ Finder/VS Code thì PATH có thể thiếu Homebrew -> không tìm thấy `gh`.
 os.environ["PATH"] = "/opt/homebrew/bin:/usr/local/bin:" + os.environ.get("PATH", "")
@@ -199,11 +204,14 @@ def format_report(lines: list[str]) -> str:
 class PillButton(tk.Canvas):
     """Nút bo tròn tự vẽ (nút Tk trên macOS không đổi được màu)."""
 
-    def __init__(self, parent, text: str, command, primary: bool = True, width: int = 112):
+    def __init__(self, parent, text: str, command, primary: bool = True, width: int = 112,
+                 color: str | None = None, hover_color: str | None = None):
         super().__init__(parent, width=width, height=36, bg=BG,
                          highlightthickness=0, cursor="pointinghand")
         self.command, self.primary, self.enabled = command, primary, True
         self.w, self.h = width, 36
+        self.color = color
+        self.hover_color = hover_color
         self.font = tkfont.Font(family=BASE_FONT, size=13, weight="bold")
         self.text = text
         self._hover = False
@@ -216,7 +224,9 @@ class PillButton(tk.Canvas):
         if self.primary:
             if not self.enabled:
                 return DISABLED, DISABLED, "#FFFFFF"
-            fill = ACCENT_HOVER if self._hover else ACCENT
+            accent = self.color or ACCENT
+            accent_hover = self.hover_color or ACCENT_HOVER
+            fill = accent_hover if self._hover else accent
             return fill, fill, "#FFFFFF"
         # Nút phụ: nền tím nhạt, chữ tím (nền trắng dễ lẫn vào nền cửa sổ).
         fill = "#E0D5FC" if self._hover and self.enabled else ACCENT_SOFT
@@ -277,6 +287,13 @@ class App(tk.Tk):
         self.badge = tk.Label(header, text="", bg=ACCENT_SOFT, fg=ACCENT,
                               font=(BASE_FONT, 12, "bold"), padx=12, pady=4)
 
+        self.update_info: dict | None = None
+        self.updating: bool = False
+        self.update_btn = PillButton(
+            header, "⬆ Update", self.on_update, primary=True, width=128,
+            color="#059669", hover_color="#047857"
+        )
+
         # --- Footer: trạng thái + nút. Pack trước các card để luôn có chỗ. ---
         footer = tk.Frame(self, bg=BG)
         footer.pack(side="bottom", fill="x", padx=24, pady=16)
@@ -317,6 +334,7 @@ class App(tk.Tk):
         self._show_message(self.text, "Press Fetch PR (⌘R) to load today's commits.", "empty")
         self._show_message(self.summary, "The summary appears here after fetching.", "muted")
         self.after(300, self.on_fetch)  # tự fetch khi mở app
+        threading.Thread(target=self._check_update_worker, daemon=True).start()
 
     def _make_text(self, parent, bg: str, height: int) -> tk.Text:
         t = tk.Text(
@@ -420,9 +438,48 @@ class App(tk.Tk):
             elif kind == "summary_error":
                 self._show_message(self.summary, str(payload), "error")
                 self.status.config(text=f"Summary failed at {stamp}", fg=ERROR)
+            elif kind == "update_available":
+                self.update_info = payload  # type: ignore[assignment]
+                tag = payload.get("version", "vNew")  # type: ignore[union-attr]
+                self.update_btn.configure_state(True, f"⬆ Update {tag}")
+                self.update_btn.pack(side="right", anchor="n", padx=(0, 10), pady=(4, 0))
+            elif kind == "update_progress":
+                percent = payload
+                self.update_btn.configure_state(False, f"{percent}%")
+                self.status.config(text=f"Downloading update… {percent}%", fg=MUTED)
+            elif kind == "update_error":
+                self.updating = False
+                self.update_btn.configure_state(True, "Retry Update")
+                self.status.config(text=f"Update failed: {payload}", fg=ERROR)
             elif kind == "done":
                 self.fetch_btn.configure_state(True, "Fetch PR")
                 return
+
+    def _check_update_worker(self) -> None:
+        try:
+            info = updater.check_for_update(__version__)
+            if info:
+                self.results.put(("update_available", info))
+        except Exception:
+            pass
+
+    def on_update(self) -> None:
+        if not self.update_info or self.updating:
+            return
+        self.updating = True
+        self.update_btn.configure_state(False, "Updating…")
+        self.status.config(text="Downloading update from GitHub…", fg=MUTED)
+        threading.Thread(target=self._apply_update_worker, daemon=True).start()
+
+    def _apply_update_worker(self) -> None:
+        put = self.results.put
+        try:
+            def progress(p: int):
+                put(("update_progress", p))
+
+            updater.apply_update(self.update_info, progress_callback=progress)
+        except Exception as e:
+            put(("update_error", str(e)))
 
     def _copy(self, text: str, what: str) -> None:
         if not text:
