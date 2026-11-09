@@ -8,6 +8,8 @@ Chạy: /opt/homebrew/bin/python3 daily_report.py
 (Không dùng /usr/bin/python3 của Apple: Tk 8.5 cũ, cửa sổ hiện trắng trơn.)
 """
 
+from __future__ import annotations
+
 import json
 import os
 import queue
@@ -20,6 +22,8 @@ import tkinter.font as tkfont
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
+import scheduler
+from scheduler import ScheduleStatus, TabMode, TriggerSource
 import updater
 
 __version__ = updater.__version__
@@ -161,39 +165,12 @@ def summarize(prs: list[dict]) -> tuple[list[str], str]:
     )
 
 
-PARABOL_URL = "https://action.parabol.co"
-
-# Brave dùng chung bộ lệnh AppleScript với Chrome. Nhảy tới tab Parabol đang mở,
-# không có thì mở tab mới (hoặc cửa sổ mới nếu Brave chưa có cửa sổ nào).
-REVEAL_PARABOL_SCRIPT = f'''
-tell application "Brave Browser"
-    activate
-    set found to false
-    repeat with w in windows
-        set i to 0
-        repeat with t in tabs of w
-            set i to i + 1
-            if URL of t contains "parabol.co" then
-                set active tab index of w to i
-                set index of w to 1
-                set found to true
-                exit repeat
-            end if
-        end repeat
-        if found then exit repeat
-    end repeat
-    if not found then
-        if (count of windows) = 0 then make new window
-        tell window 1 to make new tab with properties {{URL:"{PARABOL_URL}"}}
-    end if
-end tell
-'''
+PARABOL_URL = scheduler.PARABOL_URL
 
 
-def reveal_parabol_tab() -> None:
-    # Chạy nền, không chặn UI; lần đầu macOS hỏi quyền "PR Report muốn điều khiển Brave".
-    subprocess.Popen(["osascript", "-e", REVEAL_PARABOL_SCRIPT],
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+def reveal_parabol_tab(mode: TabMode = TabMode.ALWAYS_NEW) -> None:
+    """Mở Parabol trên trình duyệt (mặc định luôn tạo tab mới)."""
+    scheduler.open_parabol_in_browser(mode=mode)
 
 
 def format_report(lines: list[str]) -> str:
@@ -267,8 +244,8 @@ class SettingsDialog(tk.Toplevel):
         super().__init__(parent)
         self.parent_app = parent
         self.title("Settings")
-        self.geometry("480x540")
-        self.minsize(440, 480)
+        self.geometry("490x620")
+        self.minsize(450, 560)
         self.configure(bg=BG)
         self.transient(parent)
 
@@ -278,7 +255,7 @@ class SettingsDialog(tk.Toplevel):
         ph = parent.winfo_height()
         px = parent.winfo_rootx()
         py = parent.winfo_rooty()
-        self.geometry(f"+{px + max(0, (pw - 480) // 2)}+{py + max(0, (ph - 540) // 2)}")
+        self.geometry(f"+{px + max(0, (pw - 490) // 2)}+{py + max(0, (ph - 620) // 2)}")
 
         # --- Header thông tin ứng dụng ---
         app_info = tk.Frame(self, bg=BG)
@@ -297,6 +274,42 @@ class SettingsDialog(tk.Toplevel):
                  font=(BASE_FONT, 18, "bold")).pack(anchor="w")
         tk.Label(info_text, text=f"Version {__version__} · Daily Standup & Parabol", bg=BG, fg=MUTED,
                  font=(BASE_FONT, 12)).pack(anchor="w", pady=(2, 0))
+
+        # --- Thẻ Lịch tự động chạy (Schedule Card) ---
+        sched_card = tk.Frame(self, bg=CARD, highlightbackground=BORDER,
+                              highlightcolor=BORDER, highlightthickness=1)
+        sched_card.pack(fill="x", padx=24, pady=(0, 14))
+
+        sched_head = tk.Frame(sched_card, bg=CARD)
+        sched_head.pack(fill="x", padx=20, pady=(14, 6))
+        tk.Label(sched_head, text="Daily Standup Schedule", bg=CARD, fg=TEXT,
+                 font=(BASE_FONT, 14, "bold")).pack(side="left")
+
+        self.sched_badge = tk.Label(sched_head, text="", bg=ACCENT_SOFT, fg=ACCENT,
+                                    font=(BASE_FONT, 11, "bold"), padx=8, pady=2)
+        self.sched_badge.pack(side="right")
+
+        self.sched_desc = tk.Label(
+            sched_card,
+            text="",
+            bg=CARD, fg=MUTED, font=(BASE_FONT, 12), wraplength=410, justify="left"
+        )
+        self.sched_desc.pack(anchor="w", padx=20, pady=(0, 12))
+
+        sched_btn_row = tk.Frame(sched_card, bg=CARD)
+        sched_btn_row.pack(fill="x", padx=20, pady=(0, 14))
+
+        self.sched_toggle_btn = PillButton(
+            sched_btn_row, "Tắt lịch", self.on_toggle_schedule, primary=False, width=100
+        )
+        self.sched_toggle_btn.pack(side="left")
+
+        self.sched_test_btn = PillButton(
+            sched_btn_row, "Chạy thử ngay", self.on_test_run_schedule, primary=True, width=128
+        )
+        self.sched_test_btn.pack(side="left", padx=(10, 0))
+
+        self._refresh_schedule_ui()
 
         # --- Thẻ Quản lý Cập nhật (Card) ---
         card = tk.Frame(self, bg=CARD, highlightbackground=BORDER,
@@ -346,6 +359,38 @@ class SettingsDialog(tk.Toplevel):
             self.show_update_available(self.parent_app.update_info)
         else:
             self.on_check_click()
+
+    def _refresh_schedule_ui(self) -> None:
+        config = scheduler.load_config()
+        enabled = config.get("enabled", True)
+        hour = config.get("hour", scheduler.DEFAULT_HOUR)
+        minute = config.get("minute", scheduler.DEFAULT_MINUTE)
+
+        if not enabled:
+            self.sched_badge.config(text="Đã tắt", bg="#FEE2E2", fg="#DC2626")
+            self.sched_desc.config(text=f"Lịch tự động chạy ({hour:02d}:{minute:02d}) đang tắt.")
+            self.sched_toggle_btn.configure_state(True, "Bật lịch")
+            return
+
+        self.sched_badge.config(text=f"Bật · {hour:02d}:{minute:02d}", bg=ACCENT_SOFT, fg=ACCENT)
+        self.sched_desc.config(
+            text=f"Tự động mở app, tóm tắt PR hôm nay, copy clipboard và mở tab Parabol lúc {hour:02d}:{minute:02d}."
+        )
+        self.sched_toggle_btn.configure_state(True, "Tắt lịch")
+
+    def on_toggle_schedule(self) -> None:
+        config = scheduler.load_config()
+        new_state = not config.get("enabled", True)
+        config["enabled"] = new_state
+        scheduler.save_config(config)
+        scheduler.sync_launch_agent()
+        self._refresh_schedule_ui()
+
+    def on_test_run_schedule(self) -> None:
+        self.parent_app.deiconify()
+        self.parent_app.lift()
+        self.parent_app.focus_force()
+        self.parent_app.on_fetch()
 
     def on_check_click(self) -> None:
         self.check_btn.configure_state(False, "Checking…")
@@ -495,6 +540,15 @@ class App(tk.Tk):
         self.after(300, self.on_fetch)  # tự fetch khi mở app
         threading.Thread(target=self._check_update_worker, daemon=True).start()
 
+        # Luồng theo dõi kích hoạt tự động theo lịch (mặc định 17:15)
+        self.scheduler_watcher = scheduler.DailySchedulerWatcher(
+            lambda src: self.results.put(("scheduled_run", src))
+        )
+        self.scheduler_watcher.start()
+
+        # Tự động nạp hoặc cập nhật macOS LaunchAgent ngầm
+        threading.Thread(target=scheduler.sync_launch_agent, daemon=True).start()
+
     def _make_text(self, parent, bg: str, height: int) -> tk.Text:
         t = tk.Text(
             parent, width=1, height=height,  # co giãn theo cửa sổ, không đòi 80 ký tự
@@ -598,6 +652,11 @@ class App(tk.Tk):
             elif kind == "summary_error":
                 self._show_message(self.summary, str(payload), "error")
                 self.status.config(text=f"Summary failed at {stamp}", fg=ERROR)
+            elif kind == "scheduled_run":
+                self.deiconify()
+                self.lift()
+                self.focus_force()
+                self.on_fetch()
             elif kind == "update_available":
                 self.update_info = payload  # type: ignore[assignment]
                 tag = payload.get("version", "vNew")  # type: ignore[union-attr]

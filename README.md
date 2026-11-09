@@ -41,6 +41,10 @@ Mỗi buổi sáng họp **Daily Standup** hoặc viết cập nhật trên **Pa
 * 📋 **Đồng bộ Clipboard & Định dạng chuẩn**:
   * Nội dung tóm tắt được chuẩn hóa với bullet point (`•`), sẵn sàng dán trực tiếp vào Parabol, Slack, Discord.
   * Tự động chuyển tab Parabol đang mở trên trình duyệt (Brave / Chrome / Safari) hoặc mở tab mới nếu chưa có.
+* ⏰ **Lên lịch tự động 17:15 hàng ngày (Daily Auto-Run)**:
+  * Tự động mở ứng dụng đúng **17:15** qua macOS `launchd` (LaunchAgent), hoạt động kể cả khi app đang đóng hoặc máy vừa đánh thức sau Sleep.
+  * Tự động quét commit, AI tóm tắt, sao chép vào Clipboard và mở tab mới Parabol sẵn sàng cho bạn dán (`⌘V`).
+  * Tùy chỉnh bật/tắt hoặc chạy thử ngay trong cửa sổ **Settings (`⌘,`)**.
 * ⚙️ **Cửa sổ Settings & Quản lý Cập nhật (`⌘,`)**:
   * Xem thông tin phiên bản hiện tại.
   * Nút **Check for Updates** kiểm tra phiên bản mới từ GitHub Releases.
@@ -111,6 +115,7 @@ Mỗi buổi sáng họp **Daily Standup** hoặc viết cập nhật trên **Pa
 ```text
 PR-report/
 ├── daily_report.py        # Giao diện chính (Tkinter), luồng fetch GitHub, AI tóm tắt & Settings
+├── scheduler.py           # Engine quản lý lịch 17:15, macOS LaunchAgent & điều khiển trình duyệt
 ├── updater.py             # Engine tự động kiểm tra, tải DMG, mount và thay thế app
 ├── make_icon.py           # Script tạo icon ứng dụng (icon.png & icon.icns)
 ├── PR Report.spec         # Cấu hình đóng gói PyInstaller cho macOS bundle
