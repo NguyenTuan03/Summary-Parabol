@@ -14,7 +14,7 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
-__version__ = "1.0.0"
+__version__ = "1.4.0"
 
 REPO_OWNER = "NguyenTuan03"
 REPO_NAME = "Summary-Parabol"
