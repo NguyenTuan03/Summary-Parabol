@@ -41,10 +41,6 @@
    '/Applications/Tuan/Fetch PR '
    'commit/.venv/lib/python3.14/site-packages/PyInstaller/hooks/rthooks/pyi_rth_inspect.py',
    'PYSOURCE'),
-  ('pyi_rth__tkinter',
-   '/Applications/Tuan/Fetch PR '
-   'commit/.venv/lib/python3.14/site-packages/PyInstaller/hooks/rthooks/pyi_rth__tkinter.py',
-   'PYSOURCE'),
   ('pyi_rth_pkgutil',
    '/Applications/Tuan/Fetch PR '
    'commit/.venv/lib/python3.14/site-packages/PyInstaller/hooks/rthooks/pyi_rth_pkgutil.py',
@@ -53,8 +49,12 @@
    '/Applications/Tuan/Fetch PR '
    'commit/.venv/lib/python3.14/site-packages/PyInstaller/hooks/rthooks/pyi_rth_multiprocessing.py',
    'PYSOURCE'),
-  ('app_launcher',
-   '/Applications/Tuan/Fetch PR commit/app_launcher.py',
+  ('pyi_rth__tkinter',
+   '/Applications/Tuan/Fetch PR '
+   'commit/.venv/lib/python3.14/site-packages/PyInstaller/hooks/rthooks/pyi_rth__tkinter.py',
+   'PYSOURCE'),
+  ('daily_report',
+   '/Applications/Tuan/Fetch PR commit/daily_report.py',
    'PYSOURCE')],
  'Python',
  True,

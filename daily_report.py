@@ -365,16 +365,20 @@ class SettingsDialog(tk.Toplevel):
         enabled = config.get("enabled", True)
         hour = config.get("hour", scheduler.DEFAULT_HOUR)
         minute = config.get("minute", scheduler.DEFAULT_MINUTE)
+        freq_str = config.get("frequency", scheduler.ScheduleFrequency.WEEKDAYS_ONLY.value)
+        is_weekdays = freq_str == scheduler.ScheduleFrequency.WEEKDAYS_ONLY.value
+        days_label = "T2-T6" if is_weekdays else "Hàng ngày"
+        days_desc = "(Thứ 2 đến Thứ 6)" if is_weekdays else "hàng ngày"
 
         if not enabled:
             self.sched_badge.config(text="Đã tắt", bg="#FEE2E2", fg="#DC2626")
-            self.sched_desc.config(text=f"Lịch tự động chạy ({hour:02d}:{minute:02d}) đang tắt.")
+            self.sched_desc.config(text=f"Lịch tự động chạy ({hour:02d}:{minute:02d} {days_desc}) đang tắt.")
             self.sched_toggle_btn.configure_state(True, "Bật lịch")
             return
 
-        self.sched_badge.config(text=f"Bật · {hour:02d}:{minute:02d}", bg=ACCENT_SOFT, fg=ACCENT)
+        self.sched_badge.config(text=f"Bật · {hour:02d}:{minute:02d} ({days_label})", bg=ACCENT_SOFT, fg=ACCENT)
         self.sched_desc.config(
-            text=f"Tự động mở app, tóm tắt PR hôm nay, copy clipboard và mở tab Parabol lúc {hour:02d}:{minute:02d}."
+            text=f"Tự động mở app, tóm tắt PR hôm nay, copy clipboard và mở tab Parabol lúc {hour:02d}:{minute:02d} {days_desc}."
         )
         self.sched_toggle_btn.configure_state(True, "Tắt lịch")
 

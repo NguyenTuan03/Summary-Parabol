@@ -41,8 +41,8 @@ Mỗi buổi sáng họp **Daily Standup** hoặc viết cập nhật trên **Pa
 * 📋 **Đồng bộ Clipboard & Định dạng chuẩn**:
   * Nội dung tóm tắt được chuẩn hóa với bullet point (`•`), sẵn sàng dán trực tiếp vào Parabol, Slack, Discord.
   * Tự động chuyển tab Parabol đang mở trên trình duyệt (Brave / Chrome / Safari) hoặc mở tab mới nếu chưa có.
-* ⏰ **Lên lịch tự động 17:15 hàng ngày (Daily Auto-Run)**:
-  * Tự động mở ứng dụng đúng **17:15** qua macOS `launchd` (LaunchAgent), hoạt động kể cả khi app đang đóng hoặc máy vừa đánh thức sau Sleep.
+* ⏰ **Lên lịch tự động 17:15 (Thứ 2 đến Thứ 6)**:
+  * Tự động mở ứng dụng đúng **17:15 các ngày làm việc (Thứ 2 đến Thứ 6)** qua macOS `launchd` (LaunchAgent), hoạt động kể cả khi app đang đóng hoặc máy vừa đánh thức sau Sleep.
   * Tự động quét commit, AI tóm tắt, sao chép vào Clipboard và mở tab mới Parabol sẵn sàng cho bạn dán (`⌘V`).
   * Tùy chỉnh bật/tắt hoặc chạy thử ngay trong cửa sổ **Settings (`⌘,`)**.
 * ⚙️ **Cửa sổ Settings & Quản lý Cập nhật (`⌘,`)**:

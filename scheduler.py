@@ -26,6 +26,36 @@ PLIST_FILENAME = f"{LAUNCH_AGENT_LABEL}.plist"
 PARABOL_URL = "https://action.parabol.co"
 
 
+class ScheduleFrequency(Enum):
+    WEEKDAYS_ONLY = "weekdays_only"  # Thứ 2 đến Thứ 6
+    EVERY_DAY = "every_day"
+
+
+class LaunchdWeekday(Enum):
+    MONDAY = 1
+    TUESDAY = 2
+    WEDNESDAY = 3
+    THURSDAY = 4
+    FRIDAY = 5
+
+
+class PythonWeekday(Enum):
+    MONDAY = 0
+    TUESDAY = 1
+    WEDNESDAY = 2
+    THURSDAY = 3
+    FRIDAY = 4
+    SATURDAY = 5
+    SUNDAY = 6
+
+
+def is_workday(dt: datetime) -> bool:
+    """Kiểm tra ngày có phải từ Thứ 2 đến Thứ 6 hay không."""
+    if dt.weekday() in (PythonWeekday.SATURDAY.value, PythonWeekday.SUNDAY.value):
+        return False
+    return True
+
+
 class ScheduleStatus(Enum):
     ENABLED = "enabled"
     DISABLED = "disabled"
@@ -93,6 +123,7 @@ def get_default_config() -> dict:
         "enabled": True,
         "hour": DEFAULT_HOUR,
         "minute": DEFAULT_MINUTE,
+        "frequency": ScheduleFrequency.WEEKDAYS_ONLY.value,
         "tab_mode": TabMode.ALWAYS_NEW.value,
         "last_run_date": "",
     }
@@ -174,9 +205,33 @@ def get_launch_command() -> list[str]:
     return [python_bin, script_path]
 
 
-def generate_plist_dict(hour: int, minute: int) -> dict:
+def generate_plist_dict(
+    hour: int,
+    minute: int,
+    frequency: ScheduleFrequency = ScheduleFrequency.WEEKDAYS_ONLY,
+) -> dict:
     """Tạo cấu trúc dictionary cho launchd plist."""
     cmd = get_launch_command()
+    if frequency == ScheduleFrequency.WEEKDAYS_ONLY:
+        intervals = [
+            {"Weekday": day.value, "Hour": hour, "Minute": minute}
+            for day in (
+                LaunchdWeekday.MONDAY,
+                LaunchdWeekday.TUESDAY,
+                LaunchdWeekday.WEDNESDAY,
+                LaunchdWeekday.THURSDAY,
+                LaunchdWeekday.FRIDAY,
+            )
+        ]
+        return {
+            "Label": LAUNCH_AGENT_LABEL,
+            "ProgramArguments": cmd,
+            "StartCalendarInterval": intervals,
+            "RunAtLoad": False,
+            "StandardOutPath": "/tmp/pr_report_scheduler.log",
+            "StandardErrorPath": "/tmp/pr_report_scheduler.err",
+        }
+
     return {
         "Label": LAUNCH_AGENT_LABEL,
         "ProgramArguments": cmd,
@@ -194,10 +249,14 @@ def is_launch_agent_installed() -> bool:
     return get_plist_path().exists()
 
 
-def install_launch_agent(hour: int = DEFAULT_HOUR, minute: int = DEFAULT_MINUTE) -> tuple[ScheduleStatus, str]:
+def install_launch_agent(
+    hour: int = DEFAULT_HOUR,
+    minute: int = DEFAULT_MINUTE,
+    frequency: ScheduleFrequency = ScheduleFrequency.WEEKDAYS_ONLY,
+) -> tuple[ScheduleStatus, str]:
     """Cài đặt và nạp file plist vào launchd của macOS."""
     plist_path = get_plist_path()
-    plist_data = generate_plist_dict(hour, minute)
+    plist_data = generate_plist_dict(hour, minute, frequency)
 
     try:
         with open(plist_path, "wb") as f:
@@ -214,7 +273,8 @@ def install_launch_agent(hour: int = DEFAULT_HOUR, minute: int = DEFAULT_MINUTE)
     if res.returncode != 0:
         return ScheduleStatus.ERROR, f"Lỗi nạp launchctl: {res.stderr.strip()}"
 
-    return ScheduleStatus.ENABLED, f"Đã lên lịch thành công lúc {hour:02d}:{minute:02d}"
+    freq_desc = "Thứ 2 - Thứ 6" if frequency == ScheduleFrequency.WEEKDAYS_ONLY else "mỗi ngày"
+    return ScheduleStatus.ENABLED, f"Đã lên lịch thành công lúc {hour:02d}:{minute:02d} ({freq_desc})"
 
 
 def remove_launch_agent() -> tuple[ScheduleStatus, str]:
@@ -242,7 +302,9 @@ def sync_launch_agent() -> tuple[ScheduleStatus, str]:
 
     hour = config.get("hour", DEFAULT_HOUR)
     minute = config.get("minute", DEFAULT_MINUTE)
-    return install_launch_agent(hour, minute)
+    freq_str = config.get("frequency", ScheduleFrequency.WEEKDAYS_ONLY.value)
+    frequency = ScheduleFrequency.EVERY_DAY if freq_str == ScheduleFrequency.EVERY_DAY.value else ScheduleFrequency.WEEKDAYS_ONLY
+    return install_launch_agent(hour, minute, frequency)
 
 
 def open_parabol_in_browser(mode: TabMode = TabMode.ALWAYS_NEW) -> None:
@@ -357,6 +419,10 @@ class DailySchedulerWatcher:
             target_minute = config.get("minute", DEFAULT_MINUTE)
 
             now = datetime.now()
+            freq_str = config.get("frequency", ScheduleFrequency.WEEKDAYS_ONLY.value)
+            if freq_str == ScheduleFrequency.WEEKDAYS_ONLY.value and not is_workday(now):
+                continue
+
             # Kích hoạt khi đồng hồ đạt target_hour và target_minute trở đi
             if now.hour == target_hour and now.minute >= target_minute:
                 mark_run_today()
